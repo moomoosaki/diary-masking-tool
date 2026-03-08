@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI日記マスキングツール</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8fafc; font-family: sans-serif; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+            📝 AI日記マスキング & プロンプト変換
+        </h1>
+
+        <div class="card">
+            <h2 class="font-bold mb-4 text-slate-700">① 置換ルールの管理 (自動保存)</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="beforeText" placeholder="置換前（例：田中さん）" class="border p-2 rounded w-full">
+                <input type="text" id="afterText" placeholder="置換後（例：Tさん）" class="border p-2 rounded w-full">
+                <button onclick="addRule()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 whitespace-nowrap">追加</button>
+            </div>
+            <div id="rulesList" class="flex flex-wrap gap-2 text-sm">
+                </div>
+        </div>
+
+        <div class="card">
+            <h2 class="font-bold mb-2 text-slate-700">② AIへの定型文 (プロンプト)</h2>
+            <textarea id="promptText" rows="2" class="w-full border p-2 rounded text-sm" placeholder="例：以下の日記を読み、改善点や気づきを箇条書きで教えてください。"></textarea>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="flex flex-col">
+                <label class="font-bold mb-2 text-slate-700">元の日記</label>
+                <textarea id="sourceDiary" rows="10" class="border p-3 rounded w-full h-full min-h-[300px]" placeholder="ここに日記を貼り付けてください..."></textarea>
+            </div>
+            <div class="flex flex-col">
+                <label class="font-bold mb-2 text-slate-700">変換後（AI用）</label>
+                <textarea id="resultDiary" rows="10" class="border p-3 rounded w-full h-full min-h-[300px] bg-slate-50" readonly></textarea>
+            </div>
+        </div>
+
+        <div class="mt-6 flex gap-4">
+            <button onclick="executeTransform()" class="flex-1 bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 shadow-lg transition">
+                一括変換を実行
+            </button>
+            <button onclick="copyToClipboard()" class="bg-slate-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-slate-800 shadow-lg transition">
+                コピー
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // データ保持用の変数
+        let rules = JSON.parse(localStorage.getItem('maskingRules')) || [];
+        
+        // 初期読み込み
+        window.onload = () => {
+            renderRules();
+            document.getElementById('promptText').value = localStorage.getItem('aiPrompt') || "";
+        };
+
+        // ルールの追加
+        function addRule() {
+            const before = document.getElementById('beforeText').value.trim();
+            const after = document.getElementById('afterText').value.trim();
+            if(!before || !after) return;
+
+            rules.push({ before, after });
+            saveAndRender();
+            document.getElementById('beforeText').value = "";
+            document.getElementById('afterText').value = "";
+        }
+
+        // ルールの削除
+        function removeRule(index) {
+            rules.splice(index, 1);
+            saveAndRender();
+        }
+
+        // 保存と描画
+        function saveAndRender() {
+            localStorage.setItem('maskingRules', JSON.stringify(rules));
+            renderRules();
+        }
+
+        function renderRules() {
+            const listDiv = document.getElementById('rulesList');
+            listDiv.innerHTML = rules.map((rule, index) => `
+                <span class="bg-slate-200 px-2 py-1 rounded flex items-center gap-1">
+                    ${rule.before} → ${rule.after}
+                    <button onclick="removeRule(${index})" class="text-red-500 font-bold ml-1">×</button>
+                </span>
+            `).join('');
+        }
+
+        // 変換実行
+        function executeTransform() {
+            let diary = document.getElementById('sourceDiary').value;
+            const prompt = document.getElementById('promptText').value;
+            
+            // プロンプトを保存
+            localStorage.setItem('aiPrompt', prompt);
+
+            // 置換処理
+            rules.forEach(rule => {
+                const escapedBefore = rule.before.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // 正規表現のエスケープ
+                const regex = new RegExp(escapedBefore, 'g');
+                diary = diary.replace(regex, rule.after);
+            });
+
+            // 定型文と結合
+            const finalResult = prompt ? `${prompt}\n\n${diary}` : diary;
+            document.getElementById('resultDiary').value = finalResult;
+        }
+
+        // クリップボードへコピー
+        function copyToClipboard() {
+            const resultArea = document.getElementById('resultDiary');
+            resultArea.select();
+            document.execCommand('copy');
+            alert('コピーしました！');
+        }
+    </script>
+</body>
+</html>
